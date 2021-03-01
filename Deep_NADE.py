@@ -19,6 +19,8 @@ https://arxiv.org/abs/1605.02226, Uria, B., Côté, M. A., Gregor, K., Murray, I
 , & Larochelle, H. (2016). Neural autoregressive distribution estimation. 
 The Journal of Machine Learning Research, 17(1), 7184-7220.
 
+Thanks also to Caleb Sanders for help with GPU testing/capability
+
 """
 
 import numpy as np
@@ -30,9 +32,11 @@ class DeepNADE(nn.Module): # takes a FFNN model as input
     def __init__(self, model, x_train): 
         super(DeepNADE, self).__init__()
         
-        self.model = model
+        
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = model.to(self.device)
         # input layer size (may be x2 if using concat mask)
-        self.x_train=x_train
+        self.x_train=x_train.to(self.device)
         self.M = self.model[0].in_features 
         self.D = self.model[-2].out_features
         self.mask_concat=False
@@ -40,19 +44,23 @@ class DeepNADE(nn.Module): # takes a FFNN model as input
         if self.M/self.D==2: self.mask_concat=True
             
     def forward(self, N_samples=None, x=None, order=None):
+        
+        self.to(self.device)
+        
         if N_samples is None and x is None: 
             raise ValueError('Must enter samples or the number of samples to' \
                              ' be generated')
             
         if N_samples is None and x is not None: 
             N_samples, sample = x.shape[0], False
+            x.to(self.device)
 
         if N_samples is not None and x is None: 
             sample = True 
-            x = torch.zeros([N_samples,self.D],dtype=torch.float)
+            x = torch.zeros([N_samples,self.D],dtype=torch.float).to(self.device)
             
 #        PROB=torch.ones([N_samples])
-        PROB=torch.zeros([N_samples])
+        PROB=torch.zeros([N_samples]).to(self.device)
         
         if order is None: # autoregressive ordering = sequential - [x0,x1... xL]
             order = np.tile(np.arange(self.D),(N_samples,1))
@@ -66,13 +74,13 @@ class DeepNADE(nn.Module): # takes a FFNN model as input
             
             # dictates order for next pass and next masking
             od_1 = order[:,d:d+1].squeeze() 
-            
+                                    
             # run the model and get the probabilities for xd
             if self.mask_concat: # concatenates mask to input if desired
                 out=self.model(torch.cat((mask*x,mask),dim=1))
             else: 
                 out=self.model(mask*x)
-        
+                
             if d==0 and not torch.all(out>0): # only doing for d=0 to save time
                 raise ValueError('Input model requires positive and definite outputs'\
                 ' in final layer. A Sigmoid activation function is recommended.')
@@ -95,7 +103,7 @@ class DeepNADE(nn.Module): # takes a FFNN model as input
                  (1-vi)*(1-x[range(N_samples),od_1]))
                 
             # Accumulate and backpropagate NLL here as the mask/ordering matters. 
-            sample_ind = torch.randint(low=0,high=self.D,size=(1,))
+            sample_ind = torch.randint(low=0,high=self.D,size=(1,)) #uniform sample from dist
             x_target = self.x_train[:,sample_ind].squeeze()
             J_xd = (self.D/(self.D-d+1))*(x_target*torch.log(vi)+\
                 (1-x_target)*torch.log(1-vi))

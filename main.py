@@ -15,7 +15,9 @@ from Deep_NADE import DeepNADE
 from utils import rand_ordering
 
 
-concat_mask = True
+concat_mask = False
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # input layer size
 L=100
@@ -30,16 +32,13 @@ else: L_in=L
 model = nn.Sequential(nn.Linear(L_in,H), nn.Sigmoid(), 
         nn.Linear(H,L), nn.Sigmoid()) # sigmoid  
 
-# TODO: add option that concatenates the mask to the input vars/layer, this
-# methodology gave the original NADE authors a more competitive performance
-
 # test sample generation
 sample_size = 1000
-rand_s = torch.tensor(torch.randint(0,2,(sample_size,L)),dtype=torch.float)
+rand_s = torch.tensor(torch.randint(0,2,(sample_size,L)), dtype=torch.float)
 test = DeepNADE(model, rand_s)
 
 # test on random sample set
-prob, _ = test(x=rand_s)
+prob, _ = test(x=rand_s.to(device))
 
 # Now test inputing a random ordered list (for order-agnostic training)
 rand_order_list = rand_ordering(sample_size,L)
@@ -47,17 +46,9 @@ prob, samples = test(N_samples=sample_size, order=rand_order_list)
 
 pars=list(model.parameters())
 
+torch.cuda.empty_cache()
 
-#train_set = torchvision.datasets.MNIST(root=str(data_path), train=True, download=True, transform=transform)
-#train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True)
-#
-#test_set = torchvision.datasets.MNIST(root=str(data_path), train=False, download=True, transform=transform)
-#test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False)
 
-## TODO: create training routine and main run routine
-#def train():
-#    
-#    for batch_idx, data in enumerate(train_loader):
         
 
 
