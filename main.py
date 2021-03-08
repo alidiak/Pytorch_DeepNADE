@@ -19,20 +19,20 @@ def train(model, train_loader, optimizer, device):
     for batch_ind,  (target_data, _) in enumerate(train_loader):
         target_data = target_data.view(target_data.shape[0],-1).to(device)
         optimizer.zero_grad()
-        _, _, cost = model(N_samples=train_loader.batch_size,\
+        _, _, loss = model(N_samples=train_loader.batch_size,\
                                  x_train=target_data)
         # The forward computes cost and performs backprop with x_train specified
         optimizer.step()
         if batch_ind % (N_iter/20) == 0: # update every 5% completed
             print('Training ', str(round((batch_ind/N_iter)*100)), \
-                  '% complete.', ' Current cost/loss: ', str(cost), '\n')
+                  '% complete.', ' Current loss: ', str(loss.item()), '\n')
 
 def test(model, test_loader, device):
     model.eval()
     cost_total = 0.0
     N_iter = len(train_loader.dataset)/train_loader.batch_size
     for batch_ind, (test_data, _) in enumerate(test_loader):
-        test_data = test_data.view(-1).to(device)
+        test_data = test_data.view(test_data.shape[0],-1).to(device)
         _, _, cost = model(N_samples=train_loader.batch_size,\
                                  x_train=test_data)
         cost_total+=cost.item()/N_iter
@@ -41,8 +41,8 @@ def test(model, test_loader, device):
     return cost_total
 
 concat_mask = False
-lr = 0.3
-num_epochs = 100
+lr = 1
+num_epochs = 5
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #device = 'cpu'
